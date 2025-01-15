@@ -79,7 +79,37 @@ async function run() {
         })
         .send({ success: true });
     });
+    // users
+    app.post("/users", async (req, res) => {
+      const data = req.body;
+      const user = await users.findOne({ email: data.email });
+      if (!user) {
+        const result = await users.insertOne(data);
+        console.log(result);
+        return res.send(result);
+      }
 
+      res.send({ success: true });
+    });
+
+    // scholarships
+    app.get("/scholarship/topScholarship", async (req, res) => {
+      const result = await scholarships
+        .find({ scholarshipPostDate: { $lte: Date.now() } })
+        .sort({ applicationFees: 1 })
+        .limit(8)
+        .toArray();
+      res.send(result);
+    });
+    app.get("/scholarship", async (req, res) => {
+      const result = await scholarships.find({}).toArray();
+      res.send(result);
+    });
+    app.post("/scholarships", async (req, res) => {
+      const data = req.body;
+      const result = await scholarships.insertOne(data);
+      res.send(result);
+    });
     // Ping MongoDB to ensure a successful connection
 
     const res = await client.db("admin").command({ ping: 1 });
