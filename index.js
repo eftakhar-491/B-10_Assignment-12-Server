@@ -162,7 +162,28 @@ async function run() {
     });
     app.get("/applyed/:email", authenticateToken, async (req, res) => {
       const email = req.params.email;
-      const result = await applyedScholarship.find({ email: email }).toArray();
+      console.log(email);
+      const result = await applyedScholarship
+        .aggregate([
+          {
+            $match: { email: email },
+          },
+          {
+            $addFields: {
+              scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
+            },
+          },
+          {
+            $lookup: {
+              from: "scholarships",
+              localField: "scholarshipIdObjectId",
+              foreignField: "_id",
+              as: "scholarshipDetails",
+            },
+          },
+        ])
+        .toArray();
+
       res.send(result);
     });
     // stripe payment
