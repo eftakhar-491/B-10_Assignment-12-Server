@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
@@ -51,12 +52,13 @@ async function run() {
     const db = client.db("scholarshipDB");
     const users = db.collection("users");
     const scholarships = db.collection("scholarships");
+    const applyedScholarship = db.collection("applyedScholarship");
     // const artifactsLikes = db.collection("artifactsLikes");
     // const feedback = db.collection("feedback");
     // jwt token
     app.post("/jwt", async (req, res) => {
       const data = req.body;
-      console.log(data);
+
       const token = jwt.sign(data, process.env.JWT_SECRET, {
         expiresIn: "365d",
       });
@@ -85,7 +87,7 @@ async function run() {
       const user = await users.findOne({ email: data.email });
       if (!user) {
         const result = await users.insertOne(data);
-        console.log(result);
+
         return res.send(result);
       }
 
@@ -110,13 +112,60 @@ async function run() {
       const result = await scholarships.insertOne(data);
       res.send(result);
     });
+    app.get("/scholarship/details/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const result = await scholarships.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    // applyed data
+    app.post("/applyed", async (req, res) => {
+      const data = req.body;
+
+      const resx = await applyedScholarship.findOne({
+        scholarshipId: data.scholarshipId,
+      });
+      if (resx?._id) {
+        return res.send({ message: "Already applied" });
+      }
+
+      const result = await applyedScholarship.insertOne(data);
+
+      res.send(result);
+    });
+    app.put("/applyed", async (req, res) => {
+      const data = req.body;
+      const result = await applyedScholarship.updateOne(
+        { email: data.email, scholarshipId: data.scholarshipId },
+        { $set: data },
+        { upsert: true }
+      );
+      res.send(result);
+    });
+
+    // stripe payment
+    app.post("/create-payment-intent", async (req, res) => {
+      const { id } = req.body;
+      const result = await scholarships.findOne({
+        _id: new ObjectId(id),
+      });
+
+      const amount = parseInt(Number(result.applicationFees) * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
     // Ping MongoDB to ensure a successful connection
 
     const res = await client.db("admin").command({ ping: 1 });
     console.log(res);
-    app.get("/", async (req, res) => {
-      res.send("Hello World");
-    });
   } catch (e) {
     console.log(e);
   } finally {
