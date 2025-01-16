@@ -53,6 +53,7 @@ async function run() {
     const users = db.collection("users");
     const scholarships = db.collection("scholarships");
     const applyedScholarship = db.collection("applyedScholarship");
+    const reviews = db.collection("reviews");
 
     // jwt token
     app.post("/jwt", async (req, res) => {
@@ -186,6 +187,13 @@ async function run() {
 
       res.send(result);
     });
+    app.delete("/applyed/:id", authenticateToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await applyedScholarship.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
     // stripe payment
     app.post("/create-payment-intent", async (req, res) => {
       const { id } = req.body;
@@ -203,6 +211,12 @@ async function run() {
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
+    });
+    // reviews
+    app.post("/reviews", authenticateToken, async (req, res) => {
+      const data = req.body;
+      const result = await reviews.insertOne(data);
+      res.send(result);
     });
     // Ping MongoDB to ensure a successful connection
 
