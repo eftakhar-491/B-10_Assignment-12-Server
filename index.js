@@ -34,7 +34,7 @@ const client = new MongoClient(uri, {
 function authenticateToken(req, res, next) {
   const token = req?.cookies?.token;
   const userEmail = req?.query?.email;
-
+  console.log(userEmail);
   if (!token) return res.status(401).send({ message: "Unauthorized" });
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).send({ message: "Unauthorized" });
@@ -53,8 +53,7 @@ async function run() {
     const users = db.collection("users");
     const scholarships = db.collection("scholarships");
     const applyedScholarship = db.collection("applyedScholarship");
-    // const artifactsLikes = db.collection("artifactsLikes");
-    // const feedback = db.collection("feedback");
+
     // jwt token
     app.post("/jwt", async (req, res) => {
       const data = req.body;
@@ -93,14 +92,32 @@ async function run() {
 
       res.send({ success: true });
     });
-
+    app.put("/users", async (req, res) => {
+      const data = req.body;
+      const result = await users.updateOne(
+        { email: data.email },
+        { $set: data },
+        { upsert: true }
+      );
+      res.send(result);
+    });
+    app.get("/users/:email", authenticateToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await users.findOne({ email: email });
+      console.log(result);
+      res.send(result);
+    });
     // scholarships
     app.get("/scholarship/topScholarship", async (req, res) => {
       const result = await scholarships
-        .find({ scholarshipPostDate: { $lte: Date.now() } })
-        .sort({ applicationFees: 1 })
+        .find({})
+        .sort({
+          applicationFees: 1, // Sort by lowest application fees first
+          scholarshipPostDate: -1,
+        })
         .limit(8)
         .toArray();
+
       res.send(result);
     });
     app.get("/scholarship", async (req, res) => {
@@ -112,7 +129,7 @@ async function run() {
       const result = await scholarships.insertOne(data);
       res.send(result);
     });
-    app.get("/scholarship/details/:id", async (req, res) => {
+    app.get("/scholarship/details/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
 
       const result = await scholarships.findOne({ _id: new ObjectId(id) });
@@ -143,7 +160,11 @@ async function run() {
       );
       res.send(result);
     });
-
+    app.get("/applyed/:email", authenticateToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await applyedScholarship.find({ email: email }).toArray();
+      res.send(result);
+    });
     // stripe payment
     app.post("/create-payment-intent", async (req, res) => {
       const { id } = req.body;
