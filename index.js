@@ -161,6 +161,15 @@ async function run() {
       );
       res.send(result);
     });
+    app.patch("/applyed/:id", authenticateToken, async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const result = await applyedScholarship.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: data }
+      );
+      res.send(result);
+    });
     app.get("/applyed/:email", authenticateToken, async (req, res) => {
       const email = req.params.email;
       console.log(email);
@@ -216,6 +225,45 @@ async function run() {
     app.post("/reviews", authenticateToken, async (req, res) => {
       const data = req.body;
       const result = await reviews.insertOne(data);
+      res.send(result);
+    });
+    app.get("/reviews", authenticateToken, async (req, res) => {
+      const email = req.query.email;
+      const result = await reviews
+        .aggregate([
+          {
+            $match: { email: email },
+          },
+          {
+            $addFields: {
+              scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
+            },
+          },
+          {
+            $lookup: {
+              from: "scholarships",
+              localField: "scholarshipIdObjectId",
+              foreignField: "_id",
+              as: "scholarshipDetails",
+            },
+          },
+        ])
+        .toArray();
+      res.send(result);
+    });
+    app.delete("/reviews/:id", authenticateToken, async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const result = await reviews.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+    app.patch("/reviews/:id", authenticateToken, async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const result = await reviews.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: data }
+      );
       res.send(result);
     });
     // Ping MongoDB to ensure a successful connection
