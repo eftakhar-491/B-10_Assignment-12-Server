@@ -54,6 +54,27 @@ async function run() {
     const scholarships = db.collection("scholarships");
     const applyedScholarship = db.collection("applyedScholarship");
     const reviews = db.collection("reviews");
+    // verify role
+    async function verifyAdminRole(req, res, next) {
+      const email = req.query.email;
+      const user = await users.findOne({ email: email });
+
+      if (user && user.role === "Admin") {
+        next();
+      } else {
+        res.status(403).send({ message: "Forbidden" });
+      }
+    }
+    async function verifyModaretorRole(req, res, next) {
+      const email = req.query.email;
+      const user = await users.findOne({ email: email });
+
+      if (user && user.role === "Moderator") {
+        next();
+      } else {
+        res.status(403).send({ message: "Forbidden" });
+      }
+    }
 
     // jwt token
     app.post("/jwt", async (req, res) => {
@@ -125,6 +146,29 @@ async function run() {
       const result = await scholarships.find({}).toArray();
       res.send(result);
     });
+    app.get(
+      "/scholarship/manage",
+      authenticateToken,
+      verifyModaretorRole,
+      async (req, res) => {
+        const result = await scholarships.find({}).toArray();
+        res.send(result);
+      }
+    );
+    app.patch(
+      "/scholarship/:id",
+      authenticateToken,
+      verifyModaretorRole,
+      async (req, res) => {
+        const data = req.body;
+        const id = req.params.id;
+        const result = await scholarships.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: data }
+        );
+        res.send(result);
+      }
+    );
     app.post("/scholarships", async (req, res) => {
       const data = req.body;
       const result = await scholarships.insertOne(data);
@@ -136,7 +180,16 @@ async function run() {
       const result = await scholarships.findOne({ _id: new ObjectId(id) });
       res.send(result);
     });
-
+    app.delete(
+      "/scholarship/:id",
+      authenticateToken,
+      verifyModaretorRole,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await scholarships.deleteOne({ _id: new ObjectId(id) });
+        res.send(result);
+      }
+    );
     // applyed data
     app.post("/applyed", async (req, res) => {
       const data = req.body;
