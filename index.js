@@ -143,7 +143,25 @@ async function run() {
       res.send(result);
     });
     app.get("/scholarship", async (req, res) => {
-      const result = await scholarships.find({}).toArray();
+      const page = parseInt(req.query.page);
+      const limit = 3;
+      const skip = (page - 1) * limit;
+      const search = req.query.search;
+      console.log(page, req.query);
+      const quary = search
+        ? {
+            $or: [
+              { scholarshipName: { $regex: search, $options: "i" } },
+              { universityName: { $regex: search, $options: "i" } },
+              { degree: { $regex: search, $options: "i" } },
+            ],
+          }
+        : {};
+      const result = await scholarships
+        .find(quary)
+        .skip(skip)
+        .limit(limit)
+        .toArray();
       res.send(result);
     });
     app.get(
@@ -223,6 +241,20 @@ async function run() {
       );
       res.send(result);
     });
+    app.patch(
+      "/applyed/status/:id",
+      authenticateToken,
+      verifyModaretorRole,
+      async (req, res) => {
+        const data = req.body;
+        const id = req.params.id;
+        const result = await applyedScholarship.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: data }
+        );
+        res.send(result);
+      }
+    );
     app.get("/applyed/:email", authenticateToken, async (req, res) => {
       const email = req.params.email;
       console.log(email);
@@ -249,6 +281,33 @@ async function run() {
 
       res.send(result);
     });
+    app.get(
+      "/applyed",
+      authenticateToken,
+      verifyModaretorRole,
+      async (_, res) => {
+        const result = await applyedScholarship
+          .aggregate([
+            {
+              $addFields: {
+                scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
+              },
+            },
+            {
+              $lookup: {
+                from: "scholarships",
+                localField: "scholarshipIdObjectId",
+                foreignField: "_id",
+                as: "scholarshipDetails",
+              },
+            },
+          ])
+          .toArray();
+
+        res.send(result);
+      }
+    );
+
     app.delete("/applyed/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
       const result = await applyedScholarship.deleteOne({
@@ -256,6 +315,18 @@ async function run() {
       });
       res.send(result);
     });
+    // app.delete(
+    //   "/applyed/all/:id",
+    //   authenticateToken,
+    //   verifyModaretorRole,
+    //   async (req, res) => {
+    //     const id = req.params.id;
+    //     const result = await applyedScholarship.deleteOne({
+    //       _id: new ObjectId(id),
+    //     });
+    //     res.send(result);
+    //   }
+    // );
     // stripe payment
     app.post("/create-payment-intent", async (req, res) => {
       const { id } = req.body;
@@ -304,6 +375,31 @@ async function run() {
         .toArray();
       res.send(result);
     });
+    app.get(
+      "/reviews/all",
+      authenticateToken,
+      verifyModaretorRole,
+      async (_, res) => {
+        const result = await reviews
+          .aggregate([
+            {
+              $addFields: {
+                scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
+              },
+            },
+            {
+              $lookup: {
+                from: "scholarships",
+                localField: "scholarshipIdObjectId",
+                foreignField: "_id",
+                as: "scholarshipDetails",
+              },
+            },
+          ])
+          .toArray();
+        res.send(result);
+      }
+    );
     app.delete("/reviews/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
       console.log(id);
