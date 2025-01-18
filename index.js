@@ -4,7 +4,7 @@ const cors = require("cors");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
-const cookieParser = require("cookie-parser");
+
 const port = process.env.PORT || 5000;
 const app = express();
 
@@ -19,7 +19,6 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.s7kzw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -32,10 +31,12 @@ const client = new MongoClient(uri, {
   },
 });
 function authenticateToken(req, res, next) {
-  const token = req?.cookies?.token;
+  const token = req?.headers?.authorization?.split(" ")[1];
   const userEmail = req?.query?.email;
-  console.log(userEmail);
+  console.log(userEmail, token);
+
   if (!token) return res.status(401).send({ message: "Unauthorized" });
+
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).send({ message: "Unauthorized" });
 
@@ -84,24 +85,24 @@ async function run() {
         expiresIn: "365d",
       });
 
-      res
-        .cookie("token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        })
-        .send({ success: true });
+      res.send({ token });
+      // .cookie("token", token, {
+      //   httpOnly: true,
+      //   secure: process.env.NODE_ENV === "production",
+      //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      // })
+      // .send({ success: true });
     });
     // logout for unauthorized user
-    app.post("/logout", (req, res) => {
-      res
-        .clearCookie("token", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        })
-        .send({ success: true });
-    });
+    // app.post("/logout", (req, res) => {
+    //   res
+    //     .clearCookie("token", {
+    //       httpOnly: true,
+    //       secure: process.env.NODE_ENV === "production",
+    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //     })
+    //     .send({ success: true });
+    // });
     // users
     app.post("/users", async (req, res) => {
       const data = req.body;
@@ -349,7 +350,18 @@ async function run() {
     app.post("/reviews", authenticateToken, async (req, res) => {
       const data = req.body;
       const result = await reviews.insertOne(data);
-      res.send(result);
+      const { rating, totalReview } = await scholarships.findOne({
+        _id: new ObjectId(data.scholarshipId),
+      });
+      console.log(rating, totalReview);
+      const updateResult = await scholarships.updateOne(
+        { _id: new ObjectId(data.scholarshipId) },
+        {
+          $set: { rating: (rating + data.rating) / (totalReview + 1) },
+          $inc: { totalReview: 1 },
+        }
+      );
+      res.send({ ...result, ...updateResult });
     });
     app.get("/reviews", authenticateToken, async (req, res) => {
       const email = req.query.email;
@@ -382,6 +394,37 @@ async function run() {
       async (_, res) => {
         const result = await reviews
           .aggregate([
+            {
+              $addFields: {
+                scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
+              },
+            },
+            {
+              $lookup: {
+                from: "scholarships",
+                localField: "scholarshipIdObjectId",
+                foreignField: "_id",
+                as: "scholarshipDetails",
+              },
+            },
+          ])
+          .toArray();
+        res.send(result);
+      }
+    );
+    app.get(
+      "/reviews/details/:id",
+      authenticateToken,
+
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await reviews
+          .aggregate([
+            {
+              $match: {
+                scholarshipId: id,
+              },
+            },
             {
               $addFields: {
                 scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
