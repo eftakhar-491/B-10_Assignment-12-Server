@@ -12,8 +12,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://chrono-craft-art.web.app",
-      "https://chrono-craft-art.firebaseapp.com",
+      "https://scholar-sphere-system.web.app",
+      "scholar-sphere-system.firebaseapp.com",
     ],
     credentials: true,
   })
@@ -86,23 +86,8 @@ async function run() {
       });
 
       res.send({ token });
-      // .cookie("token", token, {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      // })
-      // .send({ success: true });
     });
-    // logout for unauthorized user
-    // app.post("/logout", (req, res) => {
-    //   res
-    //     .clearCookie("token", {
-    //       httpOnly: true,
-    //       secure: process.env.NODE_ENV === "production",
-    //       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-    //     })
-    //     .send({ success: true });
-    // });
+
     // users
     app.post("/users", async (req, res) => {
       const data = req.body;
@@ -113,7 +98,7 @@ async function run() {
         return res.send(result);
       }
 
-      res.send({ success: true });
+      res.send({ ...user });
     });
     app.put("/users", async (req, res) => {
       const data = req.body;
@@ -130,6 +115,7 @@ async function run() {
       console.log(result);
       res.send(result);
     });
+
     // scholarships
     app.get("/scholarship/topScholarship", async (req, res) => {
       const result = await scholarships
@@ -138,7 +124,7 @@ async function run() {
           applicationFees: 1, // Sort by lowest application fees first
           scholarshipPostDate: -1,
         })
-        .limit(8)
+        .limit(6)
         .toArray();
 
       res.send(result);
@@ -210,7 +196,7 @@ async function run() {
       }
     );
     // applyed data
-    app.post("/applyed", async (req, res) => {
+    app.post("/applyed", authenticateToken, async (req, res) => {
       const data = req.body;
 
       const resx = await applyedScholarship.findOne({
@@ -459,7 +445,9 @@ async function run() {
       res.send(result);
     });
     // Ping MongoDB to ensure a successful connection
-
+    app.get("/", (_, res) => {
+      res.send({ success: true });
+    });
     const res = await client.db("admin").command({ ping: 1 });
     console.log(res);
   } catch (e) {
