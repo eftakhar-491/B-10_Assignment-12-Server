@@ -174,7 +174,7 @@ async function run() {
         res.send(result);
       }
     );
-    app.post("/scholarships", async (req, res) => {
+    app.post("/scholarships", authenticateToken, async (req, res) => {
       const data = req.body;
       const result = await scholarships.insertOne(data);
       res.send(result);
