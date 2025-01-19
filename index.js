@@ -33,7 +33,7 @@ const client = new MongoClient(uri, {
 function authenticateToken(req, res, next) {
   const token = req?.headers?.authorization?.split(" ")[1];
   const userEmail = req?.query?.email;
-  console.log(userEmail, token);
+  console.log(userEmail);
 
   if (!token) return res.status(401).send({ message: "Unauthorized" });
 
@@ -70,7 +70,7 @@ async function run() {
       const email = req.query.email;
       const user = await users.findOne({ email: email });
 
-      if (user && user.role === "Moderator") {
+      if ((user && user.role === "Moderator") || user.role === "Admin") {
         next();
       } else {
         res.status(403).send({ message: "Forbidden" });
@@ -112,11 +112,61 @@ async function run() {
     app.get("/users/:email", authenticateToken, async (req, res) => {
       const email = req.params.email;
       const result = await users.findOne({ email: email });
+
+      res.send(result);
+    });
+    app.get("/users/all/admin", async (req, res) => {
+      console.log("user");
+      const quary =
+        req.query.filter === "All" ? {} : { role: req.query.filter };
+      const result = await users.find(quary).toArray();
       console.log(result);
       res.send(result);
     });
+    app.patch(
+      "/users/admin/role/:email",
+      authenticateToken,
+      async (req, res) => {
+        const email = req.params.email;
+        const data = req.body;
+        const result = await users.updateOne({ email: email }, { $set: data });
+        res.send(result);
+      }
+    );
+    app.delete(
+      "/users/admin/delete/:email",
+      authenticateToken,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await users.deleteOne({ email: email });
+        res.send(result);
+      }
+    );
 
     // scholarships
+    app.get(
+      "/scholarship/chart",
+      authenticateToken,
+
+      async (req, res) => {
+        const scholarRes = await scholarships.find({}).toArray();
+
+        const applyedRes = await applyedScholarship.find({}).toArray();
+        const result = scholarRes.map((item) => {
+          const total = applyedRes.map(
+            (applyedItem) => item._id.toString() === applyedItem.scholarshipId
+          );
+
+          return {
+            totalReview: item.totalReview,
+            totalApplyed: total.length,
+            scholarshipName: item.scholarshipName,
+            Fees: item.applicationFees,
+          };
+        });
+        res.send(result);
+      }
+    );
     app.get("/scholarship/topScholarship", async (req, res) => {
       const result = await scholarships
         .find({})
@@ -134,7 +184,7 @@ async function run() {
       const limit = 3;
       const skip = (page - 1) * limit;
       const search = req.query.search;
-      console.log(page, req.query);
+
       const quary = search
         ? {
             $or: [
@@ -210,7 +260,7 @@ async function run() {
 
       res.send(result);
     });
-    app.put("/applyed", async (req, res) => {
+    app.put("/applyed", authenticateToken, async (req, res) => {
       const data = req.body;
       const result = await applyedScholarship.updateOne(
         { email: data.email, scholarshipId: data.scholarshipId },
@@ -251,34 +301,39 @@ async function run() {
         res.send(result);
       }
     );
-    app.get("/applyed/:email", authenticateToken, async (req, res) => {
-      const email = req.params.email;
-      console.log(email);
-      const result = await applyedScholarship
-        .aggregate([
-          {
-            $match: { email: email },
-          },
-          {
-            $addFields: {
-              scholarshipIdObjectId: { $toObjectId: "$scholarshipId" }, // Convert scholarshipId to ObjectId
-            },
-          },
-          {
-            $lookup: {
-              from: "scholarships",
-              localField: "scholarshipIdObjectId",
-              foreignField: "_id",
-              as: "scholarshipDetails",
-            },
-          },
-        ])
-        .toArray();
-
-      res.send(result);
-    });
     app.get(
-      "/applyed",
+      "/applyed/:email",
+      authenticateToken,
+      // user role access korse
+      async (req, res) => {
+        const email = req.params.email;
+
+        const result = await applyedScholarship
+          .aggregate([
+            {
+              $match: { email: email },
+            },
+            {
+              $addFields: {
+                scholarshipIdObjectId: { $toObjectId: "$scholarshipId" },
+              },
+            },
+            {
+              $lookup: {
+                from: "scholarships",
+                localField: "scholarshipIdObjectId",
+                foreignField: "_id",
+                as: "scholarshipDetails",
+              },
+            },
+          ])
+          .toArray();
+
+        res.send(result);
+      }
+    );
+    app.get(
+      "/applyed/allApply/add",
       authenticateToken,
       verifyModaretorRole,
       async (_, res) => {
@@ -348,7 +403,7 @@ async function run() {
       const { rating, totalReview } = await scholarships.findOne({
         _id: new ObjectId(data.scholarshipId),
       });
-      console.log(rating, totalReview);
+
       const updateResult = await scholarships.updateOne(
         { _id: new ObjectId(data.scholarshipId) },
         {
@@ -440,7 +495,7 @@ async function run() {
     );
     app.delete("/reviews/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
-      console.log(id);
+
       const result = await reviews.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
