@@ -181,7 +181,7 @@ async function run() {
     });
     app.get("/scholarship", async (req, res) => {
       const page = parseInt(req.query.page);
-      const limit = 3;
+      const limit = 8;
       const skip = (page - 1) * limit;
       const search = req.query.search;
 
