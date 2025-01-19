@@ -219,6 +219,15 @@ async function run() {
       );
       res.send(result);
     });
+    app.put("/applyed/feedback/:id", async (req, res) => {
+      const data = req.body;
+      const result = await applyedScholarship.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: data },
+        { upsert: true }
+      );
+      res.send(result);
+    });
     app.patch("/applyed/:id", authenticateToken, async (req, res) => {
       const data = req.body;
       const id = req.params.id;
