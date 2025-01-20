@@ -115,17 +115,22 @@ async function run() {
 
       res.send(result);
     });
-    app.get("/users/all/admin", async (req, res) => {
-      console.log("user");
-      const quary =
-        req.query.filter === "All" ? {} : { role: req.query.filter };
-      const result = await users.find(quary).toArray();
-      console.log(result);
-      res.send(result);
-    });
+    app.get(
+      "/users/all/admin",
+      authenticateToken,
+      verifyAdminRole,
+      async (req, res) => {
+        const quary =
+          req.query.filter === "All" ? {} : { role: req.query.filter };
+        const result = await users.find(quary).toArray();
+
+        res.send(result);
+      }
+    );
     app.patch(
       "/users/admin/role/:email",
       authenticateToken,
+      verifyAdminRole,
       async (req, res) => {
         const email = req.params.email;
         const data = req.body;
@@ -136,6 +141,7 @@ async function run() {
     app.delete(
       "/users/admin/delete/:email",
       authenticateToken,
+      verifyAdminRole,
       async (req, res) => {
         const email = req.params.email;
         const result = await users.deleteOne({ email: email });
@@ -147,7 +153,7 @@ async function run() {
     app.get(
       "/scholarship/chart",
       authenticateToken,
-
+      verifyAdminRole,
       async (req, res) => {
         const scholarRes = await scholarships.find({}).toArray();
 
@@ -224,11 +230,16 @@ async function run() {
         res.send(result);
       }
     );
-    app.post("/scholarships", authenticateToken, async (req, res) => {
-      const data = req.body;
-      const result = await scholarships.insertOne(data);
-      res.send(result);
-    });
+    app.post(
+      "/scholarships",
+      authenticateToken,
+      verifyModaretorRole,
+      async (req, res) => {
+        const data = req.body;
+        const result = await scholarships.insertOne(data);
+        res.send(result);
+      }
+    );
     app.get("/scholarship/details/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
 
@@ -269,7 +280,7 @@ async function run() {
       );
       res.send(result);
     });
-    app.put("/applyed/feedback/:id", async (req, res) => {
+    app.put("/applyed/feedback/:id", authenticateToken, async (req, res) => {
       const data = req.body;
       const result = await applyedScholarship.updateOne(
         { _id: new ObjectId(req.params.id) },
@@ -304,7 +315,7 @@ async function run() {
     app.get(
       "/applyed/:email",
       authenticateToken,
-      // user role access korse
+
       async (req, res) => {
         const email = req.params.email;
 
@@ -366,20 +377,9 @@ async function run() {
       });
       res.send(result);
     });
-    // app.delete(
-    //   "/applyed/all/:id",
-    //   authenticateToken,
-    //   verifyModaretorRole,
-    //   async (req, res) => {
-    //     const id = req.params.id;
-    //     const result = await applyedScholarship.deleteOne({
-    //       _id: new ObjectId(id),
-    //     });
-    //     res.send(result);
-    //   }
-    // );
+
     // stripe payment
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", authenticateToken, async (req, res) => {
       const { id } = req.body;
       const result = await scholarships.findOne({
         _id: new ObjectId(id),
@@ -515,8 +515,7 @@ async function run() {
     const res = await client.db("admin").command({ ping: 1 });
     console.log(res);
   } catch (e) {
-    console.log(e);
-  } finally {
+    // error handel
   }
 }
 run().catch();
