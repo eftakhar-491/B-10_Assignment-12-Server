@@ -496,7 +496,24 @@ async function run() {
     app.delete("/reviews/:id", authenticateToken, async (req, res) => {
       const id = req.params.id;
 
+      const review = await reviews.findOne({ _id: new ObjectId(id) });
+      const { rating, totalReview } = await scholarships.findOne({
+        _id: new ObjectId(review.scholarshipId),
+      });
       const result = await reviews.deleteOne({ _id: new ObjectId(id) });
+      const calculate =
+        (rating * totalReview - review.rating) / (totalReview - 1) || 0;
+      console.log(calculate, rating, totalReview);
+      const updateRating = await scholarships.updateOne(
+        {
+          _id: new ObjectId(review.scholarshipId),
+        },
+        {
+          $set: { rating: calculate },
+          $inc: { totalReview: -1 },
+        }
+      );
+      console.log("total-->", totalReview);
       res.send(result);
     });
     app.patch("/reviews/:id", authenticateToken, async (req, res) => {
