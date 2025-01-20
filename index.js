@@ -171,7 +171,7 @@ async function run() {
       const result = await scholarships
         .find({})
         .sort({
-          applicationFees: 1, // Sort by lowest application fees first
+          applicationFees: 1,
           scholarshipPostDate: -1,
         })
         .limit(6)
