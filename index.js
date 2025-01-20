@@ -33,7 +33,6 @@ const client = new MongoClient(uri, {
 function authenticateToken(req, res, next) {
   const token = req?.headers?.authorization?.split(" ")[1];
   const userEmail = req?.query?.email;
-  console.log(userEmail);
 
   if (!token) return res.status(401).send({ message: "Unauthorized" });
 
@@ -503,7 +502,7 @@ async function run() {
       const result = await reviews.deleteOne({ _id: new ObjectId(id) });
       const calculate =
         (rating * totalReview - review.rating) / (totalReview - 1) || 0;
-      console.log(calculate, rating, totalReview);
+
       const updateRating = await scholarships.updateOne(
         {
           _id: new ObjectId(review.scholarshipId),
@@ -513,7 +512,7 @@ async function run() {
           $inc: { totalReview: -1 },
         }
       );
-      console.log("total-->", totalReview);
+
       res.send(result);
     });
     app.patch("/reviews/:id", authenticateToken, async (req, res) => {
@@ -530,7 +529,6 @@ async function run() {
       res.send({ success: true });
     });
     const res = await client.db("admin").command({ ping: 1 });
-    console.log(res);
   } catch (e) {
     // error handel
   }
