@@ -159,7 +159,7 @@ async function run() {
 
         const applyedRes = await applyedScholarship.find({}).toArray();
         const result = scholarRes.map((item) => {
-          const total = applyedRes.map(
+          const total = applyedRes.filter(
             (applyedItem) => item._id.toString() === applyedItem.scholarshipId
           );
 
